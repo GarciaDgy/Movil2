@@ -1,5 +1,6 @@
 package com.example.futbolito.ui.theme
 
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -15,151 +16,157 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import androidx.compose.ui.graphics.drawscope.Stroke
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
 @Composable
 fun GameScreen() {
-    val context = LocalContext.current
-    val sensorManager = remember { context.getSystemService(SensorManager::class.java) }
-    val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    val contexto = LocalContext.current
+    val sensorManager = remember { contexto.getSystemService(SensorManager::class.java) }
+    val acelerometro = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
-    var ballX by remember { mutableStateOf(300f) }
-    var ballY by remember { mutableStateOf(500f) }
-    val ballRadius = 20f
+    var posXPelota by remember { mutableStateOf(0f) }
+    var posYPelota by remember { mutableStateOf(0f) }
+    val radioPelota = 20f
 
-    var screenWidth by remember { mutableStateOf(0f) }
-    var screenHeight by remember { mutableStateOf(0f) }
+    var anchoPantalla by remember { mutableStateOf(0f) }
+    var altoPantalla by remember { mutableStateOf(0f) }
 
-    val goalWidthFactor = 0.2f
-    val goalHeight = 30f
+    val margenCampo = 30f
+    val anchoPorteriaFactor = 0.4f
+    val altoPorteriaFactor = 0.07f
+    val grosorBorde = 8f
 
-    var score by remember { mutableStateOf(0) }
+    var marcadorSuperior by remember { mutableStateOf(0) }
+    var marcadorInferior by remember { mutableStateOf(0) }
 
-    val obstacleSize = Size(100f, 20f) // Tamaño de cada obstáculo
-
-    val obstacles = listOf(
-        Offset(200f, 300f),
-        Offset(500f, 450f),
-        Offset(350f, 600f),
-        Offset(600f, 750f),
-        Offset(150f, 550f)
-    )
-
-    var velocityX by remember { mutableStateOf(0f) }
-    var velocityY by remember { mutableStateOf(0f) }
-
-    val listener = remember {
+    val sensorListener = remember {
         object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent?) {
-                event?.let {
-                    val x = it.values[0]
-                    val y = it.values[1]
+            override fun onSensorChanged(evento: SensorEvent?) {
+                evento?.let {
+                    val movimientoX = it.values[0]
+                    val movimientoY = it.values[1]
 
-                    velocityX = -x * 5
-                    velocityY = y * 5
+                    val minX = margenCampo + grosorBorde + radioPelota
+                    val maxX = anchoPantalla - margenCampo - grosorBorde - radioPelota
+                    val minY = margenCampo + grosorBorde + radioPelota
+                    val maxY = altoPantalla - margenCampo - grosorBorde - radioPelota
 
-                    var newBallX = ballX + velocityX
-                    var newBallY = ballY + velocityY
+                    posXPelota = max(minX, min(maxX, posXPelota - movimientoX * 5))
+                    posYPelota = max(minY, min(maxY, posYPelota + movimientoY * 5))
 
-                    // Verificar colisiones con los obstáculos
-                    for (obstacle in obstacles) {
-                        val obstacleX = obstacle.x
-                        val obstacleY = obstacle.y
+                    val anchoCampo = anchoPantalla - 2 * margenCampo
+                    val anchoPorteria = anchoCampo * anchoPorteriaFactor
+                    val altoPorteria = altoPantalla * altoPorteriaFactor
+                    val posXPorteria = margenCampo + (anchoCampo - anchoPorteria) / 2
 
-                        val collisionX = newBallX + ballRadius > obstacleX &&
-                                newBallX - ballRadius < obstacleX + obstacleSize.width
-                        val collisionY = newBallY + ballRadius > obstacleY &&
-                                newBallY - ballRadius < obstacleY + obstacleSize.height
-
-                        if (collisionX && collisionY) {
-                            val overlapX = min(
-                                (obstacleX + obstacleSize.width) - (newBallX - ballRadius),
-                                (newBallX + ballRadius) - obstacleX
-                            )
-                            val overlapY = min(
-                                (obstacleY + obstacleSize.height) - (newBallY - ballRadius),
-                                (newBallY + ballRadius) - obstacleY
-                            )
-
-                            if (overlapX < overlapY) {
-                                velocityX = -velocityX // Rebote horizontal
-                            } else {
-                                velocityY = -velocityY // Rebote vertical
-                            }
-
-                            newBallX = ballX + velocityX
-                            newBallY = ballY + velocityY
-                        }
+                    if (posYPelota - radioPelota <= margenCampo + altoPorteria &&
+                        posXPelota in posXPorteria..(posXPorteria + anchoPorteria)) {
+                        marcadorInferior++
+                        posXPelota = anchoPantalla / 2
+                        posYPelota = altoPantalla / 2
                     }
 
-                    // Aplicar límites de la cancha
-                    newBallX = max(ballRadius, min(screenWidth - ballRadius, newBallX))
-                    newBallY = max(ballRadius, min(screenHeight - ballRadius, newBallY))
-
-                    ballX = newBallX
-                    ballY = newBallY
-
-                    // Verificar si la pelota entra en la portería
-                    val goalX = (screenWidth - screenWidth * goalWidthFactor) / 2
-                    if (ballY - ballRadius <= goalHeight && ballX in goalX..(goalX + screenWidth * goalWidthFactor)) {
-                        score++
-                        ballX = screenWidth / 2
-                        ballY = screenHeight / 2
+                    if (posYPelota + radioPelota >= altoPantalla - margenCampo - altoPorteria &&
+                        posXPelota in posXPorteria..(posXPorteria + anchoPorteria)) {
+                        marcadorSuperior++
+                        posXPelota = anchoPantalla / 2
+                        posYPelota = altoPantalla / 2
                     }
                 }
             }
 
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+            override fun onAccuracyChanged(sensor: Sensor?, precision: Int) {}
         }
     }
 
     DisposableEffect(sensorManager) {
-        sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
-        onDispose {
-            sensorManager.unregisterListener(listener)
-        }
+        sensorManager.registerListener(
+            sensorListener,
+            acelerometro,
+            SensorManager.SENSOR_DELAY_GAME
+        )
+        onDispose { sensorManager.unregisterListener(sensorListener) }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(text = "Goles: $score", modifier = Modifier.padding(16.dp))
+    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Top) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Text("Marcador superior: $marcadorSuperior", modifier = Modifier.padding(16.dp))
+            Text("Marcador inferior: $marcadorInferior", modifier = Modifier.padding(16.dp))
+        }
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            screenWidth = size.width
-            screenHeight = size.height
+        Box(modifier = Modifier.fillMaxSize()) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                anchoPantalla = size.width
+                altoPantalla = size.height
 
-            drawRoundRect(
-                color = Color.Green,
-                size = Size(screenWidth, screenHeight),
-                cornerRadius = CornerRadius(20f, 20f)
-            )
+                val campoIzquierda = margenCampo
+                val campoArriba = margenCampo
+                val campoDerecha = anchoPantalla - margenCampo
+                val campoAbajo = altoPantalla - margenCampo
 
-            val goalX = (screenWidth - screenWidth * goalWidthFactor) / 2
-            drawRoundRect(
-                color = Color.Gray,
-                topLeft = Offset(goalX, 0f),
-                size = Size(screenWidth * goalWidthFactor, goalHeight),
-                cornerRadius = CornerRadius(10f, 10f)
-            )
+                val anchoCampo = campoDerecha - campoIzquierda
+                val altoCampo = campoAbajo - campoArriba
 
-            for (obstacle in obstacles) {
-                drawRoundRect(
-                    color = Color.Red,
-                    topLeft = obstacle,
-                    size = obstacleSize,
-                    cornerRadius = CornerRadius(5f, 5f)
+                val anchoPorteria = anchoCampo * anchoPorteriaFactor
+                val altoPorteria = altoCampo * altoPorteriaFactor
+                val posXPorteria = campoIzquierda + (anchoCampo - anchoPorteria) / 2
+
+                val alturaFranja = altoCampo / 8
+                for (i in 0..7) {
+                    drawRect(
+                        color = if (i % 2 == 0) Color(0xFF4CAF50) else Color(0xFF388E3C),
+                        topLeft = Offset(campoIzquierda, campoArriba + i * alturaFranja),
+                        size = Size(anchoCampo, alturaFranja)
+                    )
+                }
+
+                drawRect(
+                    color = Color.White,
+                    topLeft = Offset(campoIzquierda, campoArriba),
+                    size = Size(anchoCampo, altoCampo),
+                    style = Stroke(width = grosorBorde)
+                )
+
+                drawLine(
+                    Color.White,
+                    Offset(campoIzquierda + anchoCampo / 2, campoArriba),
+                    Offset(campoIzquierda + anchoCampo / 2, campoAbajo),
+                    strokeWidth = 5f
+                )
+
+                drawCircle(
+                    color = Color.White,
+                    radius = anchoCampo * 0.15f,
+                    center = Offset(campoIzquierda + anchoCampo / 2, campoArriba + altoCampo / 2),
+                    style = Stroke(width = 5f)
+                )
+
+                drawRect(
+                    color = Color.White,
+                    topLeft = Offset(posXPorteria, campoArriba),
+                    size = Size(anchoPorteria, altoPorteria),
+                    style = Stroke(width = 5f)
+                )
+
+                drawRect(
+                    color = Color.White,
+                    topLeft = Offset(posXPorteria, campoAbajo - altoPorteria),
+                    size = Size(anchoPorteria, altoPorteria),
+                    style = Stroke(width = 5f)
+                )
+
+                drawCircle(
+                    color = Color.White,
+                    radius = radioPelota,
+                    center = Offset(posXPelota, posYPelota)
                 )
             }
-
-            drawCircle(
-                color = Color.White,
-                radius = ballRadius,
-                center = Offset(ballX, ballY)
-            )
         }
     }
 }
